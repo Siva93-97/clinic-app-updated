@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clinic Patient App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- PDF export libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+</head>
+
+<body>
+
+<div class="app">
+    <header class="topbar">
+        <div class="logo">🩺</div>
+        <div class="title">
+            <h1>Clinic Patient Registration</h1>
+            <p class="subtitle">Futuristic patient management dashboard</p>
+        </div>
+        <div class="actions">
+            <button class="btn" onclick="exportCSV()">Export CSV</button>
+            <button class="btn" onclick="exportPDF()">Export PDF</button>
+            <button class="btn" onclick="triggerImportCSV()">Import CSV</button>
+            <button class="btn" onclick="showCustomExport()">Custom Export</button>
+            <button id="togglePastBtn" class="btn" onclick="togglePastFollowups()">Show Past Follow-ups</button>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <button class="btn primary" onclick="showForm()">➕ New Patient Entry</button>
+    </div>
+
+<!-- ================== NEW PATIENT FORM ================== -->
+<div id="form" class="card form-card" style="display:none;">
+    <h2>New Patient</h2>
+    <div class="form-grid">
+        <div class="field">
+            <label>Date of Visit</label>
+            <input type="date" id="visitDate" onchange="setFollowupMinDate()">
+        </div>
+
+        <div class="field">
+            <label>Patient Name</label>
+            <input type="text" id="name" placeholder="Full name">
+        </div>
+
+        <div class="field">
+            <label>Follow-up Date</label>
+            <input type="date" id="followup">
+        </div>
+
+        <div class="field">
+            <label>Mobile Number</label>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input type="tel" id="mobile" placeholder="Choose from contacts or type manually" readonly>
+                <button type="button" class="btn ghost" id="contactBtn" onclick="chooseContact()">Choose from contacts</button>
+                <button type="button" class="btn" id="manualMobileBtn" onclick="enableManualMobile()">Type manually</button>
+            </div>
+        </div>
+
+        <div class="field" style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="saveContact" />
+            <label for="saveContact" style="margin:0;color:var(--muted);font-size:13px">Save contact to device</label>
+        </div>
+
+        <div class="field">
+            <label>Age</label>
+            <input type="number" id="age">
+        </div>
+
+        <div class="field">
+            <label>Sex</label>
+            <select id="sex">
+                <option value="">Select</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+            </select>
+        </div>
+
+        <div class="field full">
+            <label>Diagnosis</label>
+            <input type="text" id="diagnosis">
+        </div>
+        <div class="field full">
+            <label>Notes</label>
+            <textarea id="notes" rows="3" placeholder="Optional notes (symptoms, instructions, etc.)"></textarea>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button id="saveBtn" class="btn primary" onclick="savePatient()">💾 Save Patient</button>
+        <button class="btn ghost" onclick="cancelEdit()">Close</button>
+    </div>
+</div>
+
+<!-- ================== UPCOMING FOLLOW-UPS ================== -->
+    <section class="card list-card">
+        <h2>Upcoming Follow-ups</h2>
+        <p id="empty">No patients yet.</p>
+
+        <ul id="patientList"></ul>
+
+        <div class="load-more-wrap">
+            <button id="loadMoreBtn" class="btn" onclick="loadMorePatients()" style="display:none;">Load More</button>
+        </div>
+    </section>
+
+    <section id="pastFollowups" class="card list-card" style="display:none; margin-top:12px;">
+        <h2>Past Follow-ups</h2>
+        <p id="emptyPast" style="color:var(--muted)">No past follow-ups.</p>
+        <ul id="pastList"></ul>
+    </section>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+<!-- Contact picker fallback modal -->
+<div id="contactModal" class="modal" style="display:none;">
+  <div class="modal-content card">
+    <h3>Contact Picker</h3>
+    <p style="color:var(--muted);font-size:13px;margin-top:-6px">
+      Your browser doesn't support the Contact Picker API. On Android Chrome you can use the Contact Picker to quickly fill name and phone. Otherwise enter the number manually.
+    </p>
+    <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="hideContactModal()">Close</button>
+      <button class="btn primary" onclick="enableManualMobile()">Enter manually</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom export modal -->
+<div id="customExportModal" class="modal" style="display:none;">
+    <div class="modal-content card">
+        <h3>Custom Export</h3>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px">Select a date range (follow-up dates)</p>
+
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:150px">
+                <label style="color:var(--muted);font-size:13px">From</label>
+                <input type="date" id="customFrom">
+            </div>
+            <div style="flex:1;min-width:150px">
+                <label style="color:var(--muted);font-size:13px">To</label>
+                <input type="date" id="customTo">
+            </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn" onclick="hideCustomExport()">Close</button>
+            <button class="btn" onclick="exportCustomCSV()">Export CSV</button>
+            <button class="btn primary" onclick="exportCustomPDF()">Export PDF</button>
+        </div>
+    </div>
+</div>
+
+<footer class="footer">App developed by Dr Sivasubramaniyan &copy; 2025</footer>
+
+<!-- hidden file input for CSV import -->
+<input type="file" id="importCsvInput" accept="text/csv" style="display:none" />
+
+<!-- Theme selector (bottom-right) -->
+<div class="theme-footer" title="Theme">
+    <label style="margin-right:8px;color:var(--muted);font-size:13px">Theme</label>
+    <select id="themeSelector" onchange="setTheme(this.value)">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="panda">Panda</option>
+        <option value="windows">Windows Mobile</option>
+    </select>
+</div>
